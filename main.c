@@ -212,6 +212,7 @@ static int loadExternalFile(char *argPath, void **fileBaseP, int *fileSizeP);
 static int loadExternalModule(char *modPath, void *defBase, int defSize);
 static void loadUsbDModule(void);
 static void loadKbdModules(void);
+static void closeAllAndPoweroff(void);
 static void poweroffHandler(int i);
 static void setupPowerOff(void);
 static void loadNetModules(void);
@@ -223,6 +224,7 @@ static void triggerPowerOff(void);
 static void Validate_CNF_Path(void);
 static void Set_CNF_Path(void);
 static int reloadConfig(void);
+static void decConfig(void);
 static void incConfig(void);
 static int exists(char *path);
 static void CleanUp(void);
@@ -481,25 +483,17 @@ static int drawMainScreen(void)
                           strlen(LNG(RIGHT)) + 2;
             if (i == 13) {  // LEFT
                 if (strlen(LNG(RIGHT)) + 2 > strlen(LNG(LEFT)) + 2)
-                    printXY(c, x + (strlen(LNG(RIGHT)) + 2 > 9 ?
-                                        ((strlen(LNG(RIGHT)) + 2) - (strlen(LNG(LEFT)) + 2)) * FONT_WIDTH :
-                                        (9 - (strlen(LNG(LEFT)) + 2)) * FONT_WIDTH),
+                    printXY(c, x + (strlen(LNG(RIGHT)) + 2 > 9 ? ((strlen(LNG(RIGHT)) + 2) - (strlen(LNG(LEFT)) + 2)) * FONT_WIDTH : (9 - (strlen(LNG(LEFT)) + 2)) * FONT_WIDTH),
                             y, color, TRUE, 0);
                 else
-                    printXY(c, x + (strlen(LNG(LEFT)) + 2 > 9 ?
-                                        0 :
-                                        (9 - (strlen(LNG(LEFT)) + 2)) * FONT_WIDTH),
+                    printXY(c, x + (strlen(LNG(LEFT)) + 2 > 9 ? 0 : (9 - (strlen(LNG(LEFT)) + 2)) * FONT_WIDTH),
                             y, color, TRUE, 0);
             } else if (i == 14) {  // RIGHT
                 if (strlen(LNG(LEFT)) + 2 > strlen(LNG(RIGHT)) + 2)
-                    printXY(c, x + (strlen(LNG(LEFT)) + 2 > 9 ?
-                                        ((strlen(LNG(LEFT)) + 2) - (strlen(LNG(RIGHT)) + 2)) * FONT_WIDTH :
-                                        (9 - (strlen(LNG(RIGHT)) + 2)) * FONT_WIDTH),
+                    printXY(c, x + (strlen(LNG(LEFT)) + 2 > 9 ? ((strlen(LNG(LEFT)) + 2) - (strlen(LNG(RIGHT)) + 2)) * FONT_WIDTH : (9 - (strlen(LNG(RIGHT)) + 2)) * FONT_WIDTH),
                             y, color, TRUE, 0);
                 else
-                    printXY(c, x + (strlen(LNG(RIGHT)) + 2 > 9 ?
-                                        0 :
-                                        (9 - (strlen(LNG(RIGHT)) + 2)) * FONT_WIDTH),
+                    printXY(c, x + (strlen(LNG(RIGHT)) + 2 > 9 ? 0 : (9 - (strlen(LNG(RIGHT)) + 2)) * FONT_WIDTH),
                             y, color, TRUE, 0);
             } else
                 printXY(c, x + (len > 9 ? (len - 9) * FONT_WIDTH : 0), y, color, TRUE, 0);
@@ -1150,18 +1144,25 @@ void loadHdlInfoModule(void)
 //------------------------------
 //endfunc loadHdlInfoModule
 //---------------------------------------------------------------------------
-static void poweroffHandler(int i)
+static void closeAllAndPoweroff(void)
 {
-    if (ps2dev9_loaded)
-    {
-      /* Close all files */
-      fileXioDevctl("pfs:", PDIOC_CLOSEALL, NULL, 0, NULL, 0);
-      /* Switch off DEV9 */
-      while(fileXioDevctl("dev9x:", DDIOC_OFF, NULL, 0, NULL, 0) < 0){};
+    if (ps2dev9_loaded) {
+        /* Close all files */
+        fileXioDevctl("pfs:", PDIOC_CLOSEALL, NULL, 0, NULL, 0);
+        /* Switch off DEV9 */
+        while (fileXioDevctl("dev9x:", DDIOC_OFF, NULL, 0, NULL, 0) < 0) {
+        };
     }
 
     /* Power-off the PlayStation 2 console. */
     poweroffShutdown();
+}
+//------------------------------
+//endfunc closeAllAndPoweroff
+//---------------------------------------------------------------------------
+static void poweroffHandler(int i)
+{
+    closeAllAndPoweroff();
 }
 //------------------------------
 //endfunc poweroffHandler
@@ -1233,7 +1234,7 @@ static void startKbd(void)
         PS2KbdInit();
         ps2kbd_opened = 1;
         if (setting->kbdmap_file[0]) {
-            if ((kbd_fd = fileXioOpen(PS2KBD_DEVFILE, O_RDONLY, 0666)) >= 0) {
+            if ((kbd_fd = fileXioOpen(PS2KBD_DEVFILE, O_RDONLY)) >= 0) {
                 printf("kbd_fd=%d; Loading Kbd map file \"%s\"\r\n", kbd_fd, setting->kbdmap_file);
                 if (loadExternalFile(setting->kbdmap_file, &mapBase, &mapSize)) {
                     if (mapSize == 0x600) {
@@ -1520,7 +1521,7 @@ static int reloadConfig(void)
 //endfunc reloadConfig
 //---------------------------------------------------------------------------
 // Config Cycle Left  (--) by EP
-static void decConfig()
+static void decConfig(void)
 {
     if (numCNF > 0)
         numCNF--;
@@ -1874,8 +1875,7 @@ Recurse_for_ESR:  //Recurse here for PS2Disc command with ESR disc
         mainMsg[0] = 0;
         drawMsg(LNG(Powering_Off_Console));
         setupPowerOff();
-        //hddPowerOff(); //deprecated
-        poweroffShutdown();
+        closeAllAndPoweroff();
         poweroff_delay = 250;  //trigger delay for those without net adapter
         poweroff_start = Timer();
         return;
@@ -1973,7 +1973,7 @@ Recurse_for_ESR:  //Recurse here for PS2Disc command with ESR disc
 static void Reset()
 {
     SifInitRpc(0);
-    while (!SifIopReset(NULL, 0)) {
+    while (!SifIopReset("", 0)) {
     };
     while (!SifIopSync()) {
     };
