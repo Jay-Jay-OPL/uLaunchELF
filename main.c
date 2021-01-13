@@ -45,8 +45,8 @@ extern u8 usbd_irx[];
 extern int size_usbd_irx;
 extern u8 usb_mass_irx[];
 extern int size_usb_mass_irx;
-extern u8 cdvd_irx[];
-extern int size_cdvd_irx;
+extern u8 cdfs_irx[];
+extern int size_cdfs_irx;
 extern u8 ps2kbd_irx[];
 extern int size_ps2kbd_irx;
 extern u8 hdl_info_irx[];
@@ -313,7 +313,7 @@ static void Show_About_uLE(void)
 			PrintPos(-1, hpos, "  and others in the PS2Dev community");
 			PrintPos(-1, hpos, "");
 			PrintPos(-1, hpos, "Main release site:");
-			PrintPos(-1, hpos, "  \"https://github.com/AKuHAK/uLaunchELF/releases\"");
+			PrintPos(-1, hpos, "  \"https://github.com/ps2homebrew/wLaunchELF/releases\"");
 			PrintPos(-1, hpos, "");
 			PrintPos(-1, hpos, "Ancestral project: LaunchELF v3.41");
 			PrintPos(-1, hpos, "Created by:        Mirakichi");
@@ -321,8 +321,9 @@ static void Show_About_uLE(void)
 		drawScr();
 		post_event = event;
 		event = 0;
-	}  //ends while
-	   //----- End of event loop -----
+	}
+	//ends while
+	//----- End of event loop -----
 }
 //------------------------------
 //endfunc Show_About_uLE
@@ -855,8 +856,9 @@ static void ShowDebugInfo(void)
 		drawScr();
 		post_event = event;
 		event = 0;
-	}  //ends while
-	   //----- End of event loop -----
+	}
+	//ends while
+	//----- End of event loop -----
 }
 //------------------------------
 //endfunc ShowDebugInfo
@@ -942,9 +944,8 @@ static void loadCdModules(void)
 	int ret;
 
 	if (!have_cdvd) {
-		SifExecModuleBuffer(cdvd_irx, size_cdvd_irx, 0, NULL, &ret);
 		sceCdInit(SCECdINoD);  // SCECdINoD init without check for a disc. Reduces risk of a lockup if the drive is in a erroneous state.
-		CDVD_Init();
+		SifExecModuleBuffer(cdfs_irx, size_cdfs_irx, 0, NULL, &ret);
 		have_cdvd = 1;
 	}
 }
@@ -996,7 +997,7 @@ int uLE_cdStop(void)
 				uLE_cdmode = (cdmode == SCECdPS2DVD) ? SCECdESRDVD_1 : SCECdESRDVD_0;
 			}
 		}
-		CDVD_Stop();
+		sceCdStop();
 		sceCdSync(0);
 	}
 	return uLE_cdmode;
@@ -1031,8 +1032,8 @@ static void getExternalFilePath(const char *argPath, char *filePath)
 
 	} else if (!strncmp(argPath, "cdfs", 4)) {
 		strcpy(filePath, argPath);
-		CDVD_FlushCache();
-		CDVD_DiskReady(0);
+		// TODO: Flush CDFS cache
+		sceCdDiskReady(0);
 	} else {
 		genFixPath(argPath, filePath);
 	}
@@ -1257,19 +1258,19 @@ static void startKbd(void)
 		PS2KbdInit();
 		ps2kbd_opened = 1;
 		if (setting->kbdmap_file[0]) {
-			if ((kbd_fd = fileXioOpen(PS2KBD_DEVFILE, O_RDONLY)) >= 0) {
+			if ((kbd_fd = open(PS2KBD_DEVFILE, O_RDONLY)) >= 0) {
 				printf("kbd_fd=%d; Loading Kbd map file \"%s\"\r\n", kbd_fd, setting->kbdmap_file);
 				if (loadExternalFile(setting->kbdmap_file, &mapBase, &mapSize)) {
 					if (mapSize == 0x600) {
-						fileXioIoctl(kbd_fd, PS2KBD_IOCTL_SETKEYMAP, mapBase);
-						fileXioIoctl(kbd_fd, PS2KBD_IOCTL_SETSPECIALMAP, mapBase + 0x300);
-						fileXioIoctl(kbd_fd, PS2KBD_IOCTL_SETCTRLMAP, mapBase + 0x400);
-						fileXioIoctl(kbd_fd, PS2KBD_IOCTL_SETALTMAP, mapBase + 0x500);
+						_ps2sdk_ioctl(kbd_fd, PS2KBD_IOCTL_SETKEYMAP, mapBase);
+						_ps2sdk_ioctl(kbd_fd, PS2KBD_IOCTL_SETSPECIALMAP, mapBase + 0x300);
+						_ps2sdk_ioctl(kbd_fd, PS2KBD_IOCTL_SETCTRLMAP, mapBase + 0x400);
+						_ps2sdk_ioctl(kbd_fd, PS2KBD_IOCTL_SETALTMAP, mapBase + 0x500);
 					}
 					printf("Freeing buffer after setting Kbd maps\r\n");
 					free(mapBase);
 				}
-				fileXioClose(kbd_fd);
+				close(kbd_fd);
 			}
 		}
 	}
@@ -1396,7 +1397,8 @@ static void ShowFont(void)
 			goto end_display;
 done_test:
 			//End of gsKit test section
-*/  //End of commented out section  //Move this line as needed for tests
+*/
+			//End of commented out section  //Move this line as needed for tests
 			//Start of font display section
 			//Now we start to draw all vertical frame lines
 			px = mat_x;
@@ -1428,10 +1430,12 @@ done_test:
 				ly += ch_y_stp;
 				drawOpSprite(col_1, mat_x, ly, mat_x + mat_w - 1, ly + LINE_THICKNESS - 1);
 				cy += ch_y_stp;
-			}  //ends for each font row
-			   //End of font display section
-		}      //ends if(event||post_event)
-		       //end_display:
+			}
+			//ends for each font row
+			//End of font display section
+		}
+		//ends if(event||post_event)
+		//end_display:
 		drawScr();
 		post_event = event;
 		event = 0;
@@ -1450,8 +1454,9 @@ done_test:
 			}
 			break;
 		}
-	}  //ends while
-	   //----- End of event loop -----
+	}
+	//ends while
+	//----- End of event loop -----
 }
 //------------------------------
 //endfunc ShowFont
@@ -1505,6 +1510,7 @@ static int reloadConfig(void)
 	else
 		GUI_active = 0;
 	loadSkin(BACKGROUND_PIC, 0, 0);
+	swapKeys = setting->swapKeys;
 
 	if (CNF_error < 0)
 		strcpy(tmp, mainMsg + strlen(LNG(Failed_To_Load)));
@@ -1725,7 +1731,7 @@ Recurse_for_ESR:  //Recurse here for PS2Disc command with ESR disc
 		makeHostPath(fullpath, fullpath);
 		goto CheckELF_fullpath;
 
-	} else if (!stricmp(path, setting->Misc_OSDSYS)) {
+	} else if (!strcasecmp(path, setting->Misc_OSDSYS)) {
 		char arg0[20], arg1[20], arg2[20], arg3[40];
 		char *args[4] = {arg0, arg1, arg2, arg3};
 		char kelf_loader[40];
@@ -1764,7 +1770,7 @@ Recurse_for_ESR:  //Recurse here for PS2Disc command with ESR disc
 		CleanUp();
 		LoadExecPS2(kelf_loader, argc, args);
 
-	} else if (!stricmp(path, setting->Misc_PS2Disc)) {
+	} else if (!strcasecmp(path, setting->Misc_PS2Disc)) {
 		drawMsg(LNG(Reading_SYSTEMCNF));
 		party[0] = 0;
 		readSystemCnf();
@@ -1864,7 +1870,7 @@ Recurse_for_ESR:  //Recurse here for PS2Disc command with ESR disc
 		sprintf(mainMsg, "%s => %s CDVD 0x%02X", LNG(PS2Disc), LNG(Failed), cdmode);
 	Done_PS2Disc:
 		x = x;
-	} else if (!stricmp(path, setting->Misc_FileBrowser)) {
+	} else if (!strcasecmp(path, setting->Misc_FileBrowser)) {
 		if (setting->GUI_skin[0]) {
 			GUI_active = 0;
 			loadSkin(BACKGROUND_PIC, 0, 0);
@@ -1892,45 +1898,45 @@ Recurse_for_ESR:  //Recurse here for PS2Disc command with ESR disc
 				Execute(tmp);
 		}
 		return;
-	} else if (!stricmp(path, setting->Misc_PS2Browser)) {
+	} else if (!strcasecmp(path, setting->Misc_PS2Browser)) {
 		Exit(0);
 		//There has been a major change in the code for calling PS2Browser
 		//The method above is borrowed from PS2MP3. It's independent of ELF loader
 		//The method below was used earlier, but causes reset with new ELF loader
 		//party[0]=0;
 		//strcpy(fullpath,"rom0:OSDSYS");
-	} else if (!stricmp(path, setting->Misc_PS2Net)) {
+	} else if (!strcasecmp(path, setting->Misc_PS2Net)) {
 		mainMsg[0] = 0;
 		loadNetModules();
 		return;
-	} else if (!stricmp(path, setting->Misc_PS2PowerOff)) {
+	} else if (!strcasecmp(path, setting->Misc_PS2PowerOff)) {
 		mainMsg[0] = 0;
 		drawMsg(LNG(Powering_Off_Console));
 		setupPowerOff();
 		closeAllAndPoweroff();
 		return;
-	} else if (!stricmp(path, setting->Misc_HddManager)) {
+	} else if (!strcasecmp(path, setting->Misc_HddManager)) {
 		if (setting->GUI_skin[0]) {
 			GUI_active = 0;
 			loadSkin(BACKGROUND_PIC, 0, 0);
 		}
 		hddManager();
 		return;
-	} else if (!stricmp(path, setting->Misc_TextEditor)) {
+	} else if (!strcasecmp(path, setting->Misc_TextEditor)) {
 		if (setting->GUI_skin[0]) {
 			GUI_active = 0;
 			loadSkin(BACKGROUND_PIC, 0, 0);
 		}
 		TextEditor(NULL);
 		return;
-	} else if (!stricmp(path, setting->Misc_JpgViewer)) {
+	} else if (!strcasecmp(path, setting->Misc_JpgViewer)) {
 		if (setting->GUI_skin[0]) {
 			GUI_active = 0;
 			loadSkin(BACKGROUND_PIC, 0, 0);
 		}
 		JpgViewer(NULL);
 		return;
-	} else if (!stricmp(path, setting->Misc_Configure)) {
+	} else if (!strcasecmp(path, setting->Misc_Configure)) {
 		if (setting->GUI_skin[0]) {
 			GUI_active = 0;
 			loadSkin(BACKGROUND_PIC, 0, 0);
@@ -1939,30 +1945,30 @@ Recurse_for_ESR:  //Recurse here for PS2Disc command with ESR disc
 		}
 		config(mainMsg, CNF);
 		return;
-	} else if (!stricmp(path, setting->Misc_Load_CNFprev)) {
+	} else if (!strcasecmp(path, setting->Misc_Load_CNFprev)) {
 		decConfig();
 		return;
-	} else if (!stricmp(path, setting->Misc_Load_CNFnext)) {
+	} else if (!strcasecmp(path, setting->Misc_Load_CNFnext)) {
 		incConfig();
 		return;
-	} else if (!stricmp(path, setting->Misc_Set_CNF_Path)) {
+	} else if (!strcasecmp(path, setting->Misc_Set_CNF_Path)) {
 		Set_CNF_Path();
 		return;
-	} else if (!stricmp(path, setting->Misc_Load_CNF)) {
+	} else if (!strcasecmp(path, setting->Misc_Load_CNF)) {
 		reloadConfig();
 		return;
 		//Next clause is for an optional font test routine
-	} else if (!stricmp(path, setting->Misc_ShowFont)) {
+	} else if (!strcasecmp(path, setting->Misc_ShowFont)) {
 		ShowFont();
 		return;
-	} else if (!stricmp(path, setting->Misc_Debug_Info)) {
+	} else if (!strcasecmp(path, setting->Misc_Debug_Info)) {
 		if (setting->GUI_skin[0]) {
 			GUI_active = 0;
 			loadSkin(BACKGROUND_PIC, 0, 0);
 		}
 		ShowDebugInfo();
 		return;
-	} else if (!stricmp(path, setting->Misc_About_uLE)) {
+	} else if (!strcasecmp(path, setting->Misc_About_uLE)) {
 		if (setting->GUI_skin[0]) {
 			GUI_active = 0;
 			loadSkin(BACKGROUND_PIC, 0, 0);
@@ -1970,8 +1976,8 @@ Recurse_for_ESR:  //Recurse here for PS2Disc command with ESR disc
 		Show_About_uLE();
 		return;
 	} else if (!strncmp(path, "cdfs", 4)) {
-		CDVD_FlushCache();
-		CDVD_DiskReady(0);
+		// TODO: Flush CDFS cache
+		sceCdDiskReady(0);
 		party[0] = 0;
 		goto CheckELF_path;
 	} else if (!strncmp(path, "rom", 3)) {
@@ -2433,8 +2439,9 @@ int main(int argc, char *argv[])
 				//loadFont(setting->font_file);
 			}
 		}
-	}  //ends while(1)
-	   //----- End of main menu event loop -----
+	}
+	//ends while(1)
+	//----- End of main menu event loop -----
 }
 //------------------------------
 //endfunc main
